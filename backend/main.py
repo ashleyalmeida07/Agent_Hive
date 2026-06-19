@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from api import tasks, agents, reputation, analytics, websocket
+from api import tasks, agents, reputation, analytics, websocket, auth
 from services.supabase_client import init_supabase
 from services.agent_runner import start_agent_polling
 import asyncio
@@ -44,6 +44,7 @@ app.include_router(tasks.router,      prefix="/api/tasks",      tags=["Tasks"])
 app.include_router(reputation.router, prefix="/api/reputation", tags=["Reputation"])
 app.include_router(analytics.router,  prefix="/api/analytics",  tags=["Analytics"])
 app.include_router(websocket.router,  prefix="/ws",             tags=["WebSocket"])
+app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
 
 
 @app.get("/")

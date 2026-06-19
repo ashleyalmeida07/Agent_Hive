@@ -2,23 +2,130 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   LayoutDashboard,
   ListChecks,
   PlusCircle,
   Compass,
-  User,
+  User as UserIcon,
   Wallet,
   Menu,
   X,
   Bell,
   Search,
+  ChevronDown,
+  LogOut,
 } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { Avatar } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/data"
+import { useAuth } from "@/components/auth/auth-provider"
+
+function UserAvatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: string; size?: 'sm' | 'md' }) {
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  const sizeClass = size === 'sm' ? 'size-8 text-xs' : 'size-9 text-sm'
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={cn(sizeClass, 'rounded-full object-cover ring-2 ring-border')}
+        referrerPolicy="no-referrer"
+      />
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        sizeClass,
+        'flex items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground ring-2 ring-border',
+      )}
+    >
+      {initials || '?'}
+    </div>
+  )
+}
+
+function UserMenu() {
+  const { user, signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const name =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    'User'
+  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 py-1 pl-3 pr-1 transition-colors hover:bg-secondary"
+      >
+        <span className="hidden text-sm font-medium text-foreground sm:block">
+          {name}
+        </span>
+        <ChevronDown className={cn('hidden size-3.5 text-muted-foreground transition-transform sm:block', open && 'rotate-180')} />
+        <UserAvatar name={name} avatarUrl={avatarUrl} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-medium text-foreground">{name}</p>
+            <p className="text-xs text-muted-foreground">{user?.email}</p>
+          </div>
+
+          <div className="p-1">
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <LayoutDashboard className="size-4" />
+              Dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false)
+                await signOut()
+                window.location.href = '/'
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
 
@@ -26,7 +133,7 @@ const clientNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks/new", label: "Post a task", icon: PlusCircle },
   { href: "/tasks", label: "Browse tasks", icon: Compass },
-  { href: "/profile/client", label: "Profile", icon: User },
+  { href: "/profile/client", label: "Profile", icon: UserIcon },
 ]
 
 const freelancerNav: NavItem[] = [
@@ -34,7 +141,7 @@ const freelancerNav: NavItem[] = [
   { href: "/tasks", label: "Find work", icon: Compass },
   { href: "/freelancer/contracts", label: "My contracts", icon: ListChecks },
   { href: "/freelancer/earnings", label: "Earnings", icon: Wallet },
-  { href: "/profile/freelancer", label: "Profile", icon: User },
+  { href: "/profile/freelancer", label: "Profile", icon: UserIcon },
 ]
 
 export function AppShell({
@@ -152,7 +259,7 @@ export function AppShell({
               <Bell className="size-4.5" />
               <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary" />
             </button>
-            <Avatar name={userName} className="size-10" />
+            <UserMenu />
           </div>
         </header>
 

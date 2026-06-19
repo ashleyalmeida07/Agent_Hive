@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bot, User, Users, Check, ArrowRight, Building2, Wallet } from "lucide-react"
+import { Bot, User, Users, Check, ArrowRight, Building2, Wallet, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
 import {
   executorMeta,
   getPaymentSplit,
@@ -26,30 +28,91 @@ const categories = ["Automation", "Design", "Data", "Content", "Development", "M
 
 export function CreateTaskForm() {
   const router = useRouter()
+  const { user } = useAuth()
   const [executor, setExecutor] = useState<ExecutorType>("agent")
   const [budget, setBudget] = useState(2000)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
   const split = getPaymentSplit(executor)
   const amounts = useMemo(() => splitAmount(executor, budget), [executor, budget])
   const fee = Math.round(budget * 0.05)
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!user) {
+      setError("You must be logged in to post a task.")
+      return
+    }
+
+    setError("")
+    setSubmitting(true)
+
+    const form = new FormData(e.currentTarget)
+    const title = form.get("title") as string
+    const category = form.get("category") as string
+    const skillsRaw = form.get("skills") as string
+    const description = form.get("desc") as string
+
+    const skills = skillsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    const supabase = createClient()
+
+    const userName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "Anonymous"
+
+    const { error: insertError } = await supabase.from("tasks").insert({
+      title,
+      description,
+      task_type: category.toLowerCase(),
+      category,
+      executor_type: executor,
+      bounty_amount: budget,
+      skills,
+      tags: skills,
+      poster_id: user.id,
+      poster_address: user.email ?? "",
+      poster_name: userName,
+      status: "open",
+    })
+
+    if (insertError) {
+      setError(insertError.message)
+      setSubmitting(false)
+      return
+    }
+
+    router.push("/dashboard")
+  }
+
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        router.push("/dashboard")
-      }}
+      onSubmit={handleSubmit}
       className="grid gap-6 lg:grid-cols-[1fr_360px]"
     >
       {/* Left: details */}
       <div className="flex flex-col gap-6">
         <Card className="p-6">
           <h2 className="font-heading text-lg font-semibold">Task details</h2>
+
+          {error && (
+            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
           <div className="mt-5 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="title">Task title</Label>
               <Input
                 id="title"
+                name="title"
                 required
                 placeholder="e.g. Build an automated lead-scoring pipeline"
               />
@@ -60,10 +123,11 @@ export function CreateTaskForm() {
                 <Label htmlFor="category">Category</Label>
                 <select
                   id="category"
+                  name="category"
                   className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 >
                   {categories.map((c) => (
-                    <option key={c} className="bg-card">
+                    <option key={c} value={c} className="bg-card">
                       {c}
                     </option>
                   ))}
@@ -71,7 +135,7 @@ export function CreateTaskForm() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="skills">Required skills</Label>
-                <Input id="skills" placeholder="e.g. Python, Webhooks, LLM" />
+                <Input id="skills" name="skills" placeholder="e.g. Python, Webhooks, LLM" />
               </div>
             </div>
 
@@ -79,6 +143,7 @@ export function CreateTaskForm() {
               <Label htmlFor="desc">Description</Label>
               <Textarea
                 id="desc"
+                name="desc"
                 required
                 rows={6}
                 placeholder="Describe the goal, deliverables, and any tools or systems involved."
@@ -218,9 +283,15 @@ export function CreateTaskForm() {
             {executorMeta[executor].description}
           </p>
 
-          <Button type="submit" size="lg" className="mt-5 w-full rounded-xl">
-            Post task
-            <ArrowRight className="size-4" />
+          <Button type="submit" size="lg" className="mt-5 w-full rounded-xl" disabled={submitting}>
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                Post task
+                <ArrowRight className="size-4" />
+              </>
+            )}
           </Button>
         </Card>
       </div>
