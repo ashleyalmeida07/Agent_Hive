@@ -1,0 +1,45 @@
+import { Analytics } from '@vercel/analytics/next'
+import type { Metadata, Viewport } from 'next'
+import { Poppins, Inter } from 'next/font/google'
+import './globals.css'
+
+const poppins = Poppins({
+  variable: '--font-poppins',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+})
+
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+})
+
+export const metadata: Metadata = {
+  title: 'Risenix — Smart AI Automation for Your Business',
+  description:
+    'Risenix is an AI automation agency building intelligent workflows designed to multiply productivity and growth across complex business operations.',
+  generator: 'v0.app',
+}
+
+export const viewport: Viewport = {
+  colorScheme: 'dark',
+  themeColor: '#0b0b0f',
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`dark ${poppins.variable} ${inter.variable} bg-background`}
+    >
+      <body className="font-sans antialiased">
+        {children}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
+      </body>
+    </html>
+  )
+}
