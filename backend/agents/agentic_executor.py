@@ -51,7 +51,7 @@ class AgenticExecutor:
             api_key=os.getenv("LLM_API_KEY", ""),
         )
         self.model = os.getenv("LLM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-        self.max_iterations = 15  # safety limit
+        self.max_iterations = 1  # safety limit
 
     def run(self, task: dict, task_id: str, on_event: Callable):
         """
