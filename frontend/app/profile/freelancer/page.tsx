@@ -58,7 +58,8 @@ export default function FreelancerProfilePage() {
                   <h2 className="font-heading text-xl font-semibold">{name}</h2>
                   <BadgeCheck className="size-4.5 text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground">{f.title}</p>
+                <p className="text-sm font-medium text-purple-400">Freelancer Account</p>
+                <p className="mt-1 text-sm text-muted-foreground">{f.title}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Star className="size-4 text-amber-300" /> {f.rating} ({f.reviews})

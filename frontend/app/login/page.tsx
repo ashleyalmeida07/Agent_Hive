@@ -26,7 +26,6 @@ export default function LoginPage() {
   const router = useRouter()
   const { signIn, signInWithGoogle } = useAuth()
   const [isPending, startTransition] = useTransition()
-  const [role, setRole] = useState<"client" | "freelancer">("client")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -39,7 +38,7 @@ export default function LoginPage() {
     const email = form.get("email") as string
     const password = form.get("password") as string
 
-    const { error: authError } = await signIn(email, password)
+    const { error: authError, data } = await signIn(email, password)
 
     if (authError) {
       setError(authError.message)
@@ -47,8 +46,10 @@ export default function LoginPage() {
       return
     }
 
+    const userRole = data?.user?.user_metadata?.role || "client"
+
     startTransition(() => {
-      router.push(role === "client" ? "/dashboard" : "/freelancer")
+      router.push(userRole === "client" ? "/dashboard" : "/freelancer")
     })
   }
 
@@ -68,23 +69,6 @@ export default function LoginPage() {
       subtitle="Sign in to your AgentHive workspace."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-secondary/40 p-1">
-          {(["client", "freelancer"] as const).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={cn(
-                "rounded-lg py-2 text-sm font-medium capitalize transition-colors",
-                role === r
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {r === "client" ? "Client" : "Freelancer"}
-            </button>
-          ))}
-        </div>
 
         {error && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">

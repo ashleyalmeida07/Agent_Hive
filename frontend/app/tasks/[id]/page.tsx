@@ -298,6 +298,12 @@ export default function TaskDetailPage() {
   const [createdFiles, setCreatedFiles] = useState<{name: string, size: number}[]>([])
   const [toolCalls, setToolCalls] = useState<{name: string, args: any}[]>([])
   
+  // Freelancer workflow state
+  const [applications, setApplications] = useState<any[]>([])
+  const [coverLetter, setCoverLetter] = useState("")
+  const [workSubmission, setWorkSubmission] = useState("")
+  const [loadingApp, setLoadingApp] = useState(false)
+  
   // New State for Preview / Code Viewer
   const [activeTab, setActiveTab] = useState<"preview" | "code">("preview")
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -501,6 +507,69 @@ export default function TaskDetailPage() {
     setAgentRunning(false)
   }
 
+  // ── Freelancer Handlers ────────────────────────────────────────
+
+  const fetchApplications = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/tasks/${taskId}/applications`)
+      const data = await res.json()
+      if (data.applications) setApplications(data.applications)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  useEffect(() => {
+    if (task && (task.executor_type === 'human' || task.executor_type === 'both')) {
+      fetchApplications()
+    }
+  }, [task?.executor_type])
+
+  const handleApply = async () => {
+    if (!user || !coverLetter) return
+    setLoadingApp(true)
+    try {
+      await fetch(`http://localhost:8000/api/tasks/${taskId}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freelancer_id: user.id, cover_letter: coverLetter })
+      })
+      await fetchApplications()
+      setCoverLetter("")
+    } catch (e) {
+      console.error(e)
+    }
+    setLoadingApp(false)
+  }
+
+  const handleAccept = async (appId: string) => {
+    try {
+      await fetch(`http://localhost:8000/api/tasks/${taskId}/applications/${appId}/accept`, { method: "POST" })
+      window.location.reload()
+    } catch (e) {}
+  }
+
+  const handleSubmitWork = async () => {
+    if (!workSubmission) return
+    setLoadingApp(true)
+    try {
+      await fetch(`http://localhost:8000/api/tasks/${taskId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submission: workSubmission })
+      })
+      window.location.reload()
+    } catch (e) {}
+    setLoadingApp(false)
+  }
+
+  const handleApproveWork = async () => {
+    try {
+      await fetch(`http://localhost:8000/api/tasks/${taskId}/approve_work`, { method: "POST" })
+      window.location.reload()
+    } catch (e) {}
+  }
+
   // Progress calculation
   const totalPhases = phases.length || 4
   const donePhases = phases.filter((p) => p.status === "done").length
@@ -537,6 +606,10 @@ export default function TaskDetailPage() {
   const executorInfo = executorMeta[executorType as keyof typeof executorMeta] || executorMeta.agent
   const skills: string[] = task.skills || task.tags || []
   const isAgentTask = executorType === "agent" || executorType === "both"
+  const isHumanTask = executorType === "human" || executorType === "both"
+  const isClient = user?.id === task.poster_id
+  
+  const userApplication = applications.find(a => a.freelancer_id === user?.id)
 
   return (
     <AppShell role="client" userName={userName}>
@@ -804,6 +877,119 @@ export default function TaskDetailPage() {
               )}
             </Card>
           )}
+
+          {/* Freelancer panel */}
+          {(() => {
+            const isHumanTask = task.executor_type === 'human' || task.executor_type === 'freelancer' || task.executor_type === 'both';
+            const isClient = user?.id === task.poster_id;
+            return isHumanTask && (
+              <Card className="overflow-hidden mt-6">
+                <div className="flex items-center gap-3 border-b border-border bg-card p-5">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/15">
+                    <User className="size-5 text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="font-heading text-base font-semibold">Human Execution</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Freelancer workflow status: {task.freelancer_status || 'open'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-5 flex flex-col gap-4">
+                  {!isClient ? (
+                    // FREELANCER VIEW
+                    <>
+                      {!userApplication && task.status === 'open' && (
+                        <div className="space-y-3">
+                          <label className="text-sm font-medium">Cover Letter / Proposal</label>
+                          <textarea
+                            className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Why are you a good fit?"
+                            value={coverLetter}
+                            onChange={(e) => setCoverLetter(e.target.value)}
+                          />
+                          <Button onClick={handleApply} disabled={loadingApp || !coverLetter}>
+                            {loadingApp ? <Loader2 className="size-4 animate-spin" /> : "Apply for Task"}
+                          </Button>
+                        </div>
+                      )}
+                      {userApplication && userApplication.status === 'pending' && (
+                        <div className="rounded-lg bg-secondary/50 p-4 text-center">
+                          <p className="text-sm text-muted-foreground">Your application is pending review by the client.</p>
+                        </div>
+                      )}
+                      {userApplication && userApplication.status === 'accepted' && task.freelancer_status === 'assigned' && (
+                        <div className="space-y-3">
+                          <label className="text-sm font-medium text-emerald-400">You were selected! Submit your work here:</label>
+                          <textarea
+                            className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Link to repo, Google Doc, or direct text..."
+                            value={workSubmission}
+                            onChange={(e) => setWorkSubmission(e.target.value)}
+                          />
+                          <Button onClick={handleSubmitWork} disabled={loadingApp || !workSubmission}>
+                            {loadingApp ? <Loader2 className="size-4 animate-spin" /> : "Submit Work"}
+                          </Button>
+                        </div>
+                      )}
+                      {task.freelancer_status === 'submitted' && (
+                        <div className="rounded-lg bg-secondary/50 p-4 text-center">
+                          <p className="text-sm text-muted-foreground">Work submitted. Awaiting client approval.</p>
+                        </div>
+                      )}
+                      {task.freelancer_status === 'approved' && (
+                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
+                          <p className="text-sm font-medium text-emerald-400">Work approved! Payment will be sent to your wallet.</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // CLIENT VIEW
+                    <>
+                      {task.status === 'open' && applications.length === 0 && (
+                        <p className="text-sm text-muted-foreground">No applications yet.</p>
+                      )}
+                      {task.status === 'open' && applications.length > 0 && (
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-medium">Applicants ({applications.length})</h3>
+                          {applications.map(app => (
+                            <div key={app.id} className="rounded-lg border border-border p-4 bg-secondary/20">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="font-semibold text-sm">{app.freelancer?.full_name || 'Anonymous Freelancer'}</span>
+                                <Button size="sm" variant="outline" onClick={() => handleAccept(app.id)}>Accept</Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{app.cover_letter}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {task.freelancer_status === 'assigned' && (
+                        <div className="rounded-lg bg-secondary/50 p-4 text-center">
+                          <p className="text-sm text-muted-foreground">Freelancer is working on the task.</p>
+                        </div>
+                      )}
+                      {task.freelancer_status === 'submitted' && (
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-medium">Work Submission</h3>
+                          <div className="rounded-lg border border-border p-4 bg-secondary/20">
+                            <p className="text-sm whitespace-pre-wrap">{task.freelancer_submission}</p>
+                          </div>
+                          <Button onClick={handleApproveWork} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">Approve & Release Payment</Button>
+                        </div>
+                      )}
+                      {task.freelancer_status === 'approved' && (
+                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
+                          <p className="text-sm font-medium text-emerald-400">You approved the work. Payment process initiated.</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </Card>
+            );
+          })()}
+
         </div>
 
         {/* Right sidebar */}

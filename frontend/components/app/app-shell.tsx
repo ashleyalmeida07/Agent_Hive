@@ -132,7 +132,8 @@ type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
 const clientNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks/new", label: "Post a task", icon: PlusCircle },
-  { href: "/tasks", label: "Browse tasks", icon: Compass },
+  { href: "/tasks", label: "My contracts", icon: ListChecks },
+  { href: "/dashboard/earnings", label: "Earnings", icon: Wallet },
   { href: "/profile/client", label: "Profile", icon: UserIcon },
 ]
 
@@ -145,16 +146,19 @@ const freelancerNav: NavItem[] = [
 ]
 
 export function AppShell({
-  role,
+  role: defaultRole,
   userName,
   children,
 }: {
-  role: Role
+  role?: string
   userName: string
   children: React.ReactNode
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
+  
+  const role = user?.user_metadata?.role || defaultRole || "client"
   const nav = role === "client" ? clientNav : freelancerNav
 
   return (

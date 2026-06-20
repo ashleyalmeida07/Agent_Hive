@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 
 export default function TasksPage() {
   const { user } = useAuth()
+  const role = user?.user_metadata?.role || "client"
   const userName =
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
@@ -14,12 +15,16 @@ export default function TasksPage() {
     "User"
 
   return (
-    <AppShell role="freelancer" userName={userName}>
+    <AppShell role={role} userName={userName}>
       <PageHeader
-        title="Find work"
-        subtitle="Browse open tasks. Filter by who can take them on — agent, freelancer, or hybrid."
+        title={role === "client" ? "My contracts" : "Find work"}
+        subtitle={
+          role === "client"
+            ? "Manage all the tasks you have posted on AgentHive."
+            : "Browse open tasks. Filter by who can take them on — agent, freelancer, or hybrid."
+        }
       />
-      <TaskBrowser />
+      <TaskBrowser clientOnly={role === "client"} />
     </AppShell>
   )
 }

@@ -7,8 +7,8 @@ import type { User, AuthError } from "@supabase/supabase-js"
 type AuthContextType = {
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
-  signUp: (email: string, password: string, meta?: { name?: string; role?: string }) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null, data?: any }>
+  signUp: (email: string, password: string, meta?: { name?: string; role?: string }) => Promise<{ error: AuthError | null, data?: any }>
   signInWithGoogle: () => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
@@ -62,12 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    return { error, data }
   }, [])
 
   const signUp = useCallback(async (email: string, password: string, meta?: { name?: string; role?: string }) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       },
     })
-    return { error }
+    return { error, data }
   }, [])
 
   const signInWithGoogle = useCallback(async () => {

@@ -59,7 +59,7 @@ export default function ClientProfilePage() {
               <div>
                 <h2 className="font-heading text-xl font-semibold">{name}</h2>
                 <p className="text-sm text-muted-foreground">
-                  Independent Client · Global
+                  Client Account
                 </p>
               </div>
               <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">

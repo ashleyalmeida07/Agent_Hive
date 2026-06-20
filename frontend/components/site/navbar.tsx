@@ -10,6 +10,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 const links = [
   { label: 'How it works', href: '#process' },
   { label: 'Services', href: '#services' },
+  { label: 'Find work', href: '#tasks' },
   { label: 'Benefits', href: '#benefits' },
   { label: 'FAQs', href: '#faqs' },
 ]

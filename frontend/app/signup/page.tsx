@@ -39,7 +39,7 @@ const roles = [
 
 export default function SignupPage() {
   const router = useRouter()
-  const { signUp, signInWithGoogle } = useAuth()
+  const { signUp, signIn, signInWithGoogle } = useAuth()
   const [isPending, startTransition] = useTransition()
   const [role, setRole] = useState<"client" | "freelancer">("client")
   const [error, setError] = useState("")
@@ -56,7 +56,7 @@ export default function SignupPage() {
     const email = form.get("email") as string
     const password = form.get("password") as string
 
-    const { error: authError } = await signUp(email, password, { name, role })
+    const { error: authError, data } = await signUp(email, password, { name, role })
 
     if (authError) {
       setError(authError.message)
@@ -64,13 +64,25 @@ export default function SignupPage() {
       return
     }
 
-    setSuccess(true)
     setLoading(false)
 
-    // If email confirmation is disabled in Supabase, navigate directly
-    startTransition(() => {
-      router.push(role === "client" ? "/dashboard" : "/freelancer")
-    })
+    // If email confirmation is disabled in Supabase, we get a session immediately
+    if (data?.session) {
+      startTransition(() => {
+        router.push(role === "client" ? "/dashboard" : "/freelancer")
+      })
+    } else {
+      // Auto-login since our DB trigger auto-confirms the user
+      const { error: loginError } = await signIn(email, password)
+      if (!loginError) {
+        startTransition(() => {
+          router.push(role === "client" ? "/dashboard" : "/freelancer")
+        })
+      } else {
+        // Fallback if login fails
+        setSuccess(true)
+      }
+    }
   }
 
   async function handleGoogleSignup() {

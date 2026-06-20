@@ -322,6 +322,73 @@ def download_workspace(task_id: str):
     )
 
 
+class ApplicationCreate(BaseModel):
+    freelancer_id: str
+    cover_letter: str
+
+@router.post("/{task_id}/apply")
+def apply_for_task(task_id: str, app: ApplicationCreate):
+    db = get_supabase()
+    task_res = db.table("tasks").select("task_id").eq("id", task_id).execute()
+    if not task_res.data:
+        raise HTTPException(404, "Task not found")
+    t_id = task_res.data[0]["task_id"]
+    db.table("task_applications").insert({
+        "task_id": t_id,
+        "freelancer_id": app.freelancer_id,
+        "cover_letter": app.cover_letter,
+        "status": "pending"
+    }).execute()
+    return {"success": True}
+
+@router.get("/{task_id}/applications")
+def get_applications(task_id: str):
+    db = get_supabase()
+    task_res = db.table("tasks").select("task_id").eq("id", task_id).execute()
+    if not task_res.data:
+        return {"applications": []}
+    t_id = task_res.data[0]["task_id"]
+    apps_res = db.table("task_applications").select("*, freelancer:users(*)").eq("task_id", t_id).execute()
+    return {"applications": apps_res.data}
+
+@router.post("/{task_id}/applications/{app_id}/accept")
+def accept_application(task_id: str, app_id: str):
+    db = get_supabase()
+    db.table("task_applications").update({"status": "accepted"}).eq("id", app_id).execute()
+    app_res = db.table("task_applications").select("freelancer_id").eq("id", app_id).execute()
+    if not app_res.data:
+        raise HTTPException(404, "Application not found")
+    f_id = app_res.data[0]["freelancer_id"]
+    db.table("tasks").update({
+        "freelancer_id": f_id,
+        "status": "in_progress",
+        "freelancer_status": "assigned"
+    }).eq("id", task_id).execute()
+    return {"success": True}
+
+class SubmissionCreate(BaseModel):
+    submission: str
+
+@router.post("/{task_id}/submit")
+def submit_work(task_id: str, payload: SubmissionCreate):
+    db = get_supabase()
+    db.table("tasks").update({
+        "freelancer_submission": payload.submission,
+        "freelancer_status": "submitted"
+    }).eq("id", task_id).execute()
+    return {"success": True}
+
+@router.post("/{task_id}/approve_work")
+def approve_work(task_id: str):
+    db = get_supabase()
+    db.table("tasks").update({
+        "freelancer_status": "approved",
+        "status": "completed",
+        "completed_at": datetime.utcnow().isoformat()
+    }).eq("id", task_id).execute()
+    return {"success": True}
+
+
 # ── Legacy endpoints ────────────────────────────────────────────
 
 @router.post("/{task_id}/approve")

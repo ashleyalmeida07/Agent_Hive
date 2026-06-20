@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { executorMeta, type ExecutorType, type Task } from "@/lib/data"
 import { createClient } from "@/lib/supabase"
+import { useAuth } from "@/components/auth/auth-provider"
 
 type ExecFilter = ExecutorType | "all"
 
@@ -44,20 +45,36 @@ function getTimeAgo(dateStr: string): string {
   return `${Math.floor(days / 7)}w ago`
 }
 
-export function TaskBrowser({ filterExecutor }: { filterExecutor?: "freelancer" | "all" }) {
+export function TaskBrowser({ filterExecutor, clientOnly }: { filterExecutor?: "freelancer" | "all", clientOnly?: boolean }) {
+  const { user } = useAuth()
+  const role = user?.user_metadata?.role
+
   const [exec, setExec] = useState<ExecFilter>(filterExecutor === "freelancer" ? "freelancer" : "all")
   const [query, setQuery] = useState("")
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
+  const availableFilters = useMemo(() => {
+    if (!clientOnly) {
+      return execFilters.filter((f) => f.id !== "agent")
+    }
+    return execFilters
+  }, [clientOnly])
+
   useEffect(() => {
     async function fetchTasks() {
       setLoading(true)
       const supabase = createClient()
-      const { data, error } = await supabase
+      let queryBuilder = supabase
         .from("tasks")
         .select("*")
         .order("created_at", { ascending: false })
+
+      if (clientOnly && user && role === "client") {
+        queryBuilder = queryBuilder.eq("poster_id", user.id)
+      }
+
+      const { data, error } = await queryBuilder
 
       if (!error && data) {
         setTasks(data.map(mapDbTask))
@@ -69,6 +86,11 @@ export function TaskBrowser({ filterExecutor }: { filterExecutor?: "freelancer" 
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
+      // NEVER show agent-only tasks on the find work board, UNLESS the client is viewing their own contracts
+      if (!clientOnly && t.executor === "agent") {
+        return false
+      }
+
       const byExec = exec === "all" || t.executor === exec
       const byQuery =
         query.trim() === "" ||
@@ -91,7 +113,7 @@ export function TaskBrowser({ filterExecutor }: { filterExecutor?: "freelancer" 
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {execFilters.map((f) => (
+          {availableFilters.map((f) => (
             <button
               key={f.id}
               onClick={() => setExec(f.id)}
