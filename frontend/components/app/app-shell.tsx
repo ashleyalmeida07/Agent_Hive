@@ -16,6 +16,7 @@ import {
   Search,
   ChevronDown,
   LogOut,
+  Code2,
 } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { Avatar } from "@/components/ui/avatar"
@@ -132,8 +133,10 @@ type NavItem = { href: string; label: string; icon: typeof LayoutDashboard }
 const clientNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks/new", label: "Post a task", icon: PlusCircle },
+  { href: "/tasks", label: "Browse tasks", icon: Compass },
   { href: "/tasks", label: "My contracts", icon: ListChecks },
   { href: "/dashboard/earnings", label: "Earnings", icon: Wallet },
+  { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
   { href: "/profile/client", label: "Profile", icon: UserIcon },
 ]
 
@@ -142,6 +145,7 @@ const freelancerNav: NavItem[] = [
   { href: "/tasks", label: "Find work", icon: Compass },
   { href: "/freelancer/contracts", label: "My contracts", icon: ListChecks },
   { href: "/freelancer/earnings", label: "Earnings", icon: Wallet },
+  { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
   { href: "/profile/freelancer", label: "Profile", icon: UserIcon },
 ]
 

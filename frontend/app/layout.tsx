@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Poppins, Inter } from 'next/font/google'
+import { Poppins, Inter, JetBrains_Mono } from 'next/font/google'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import './globals.css'
 
@@ -13,6 +13,12 @@ const poppins = Poppins({
 const inter = Inter({
   variable: '--font-inter',
   subsets: ['latin'],
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
 })
 
 export const metadata: Metadata = {
@@ -34,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${poppins.variable} ${inter.variable} bg-background`}
+      className={`dark ${poppins.variable} ${inter.variable} ${jetbrainsMono.variable} bg-background`}
     >
       <body className="font-sans antialiased">
         <AuthProvider>

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from api import tasks, agents, reputation, analytics, websocket, auth
+from api import ide_compile, ide_projects, ide_deployments
 from services.supabase_client import init_supabase
 from services.agent_runner import start_agent_polling
 import asyncio
@@ -45,6 +46,11 @@ app.include_router(reputation.router, prefix="/api/reputation", tags=["Reputatio
 app.include_router(analytics.router,  prefix="/api/analytics",  tags=["Analytics"])
 app.include_router(websocket.router,  prefix="/ws",             tags=["WebSocket"])
 app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
+
+# IDE Smart Contract routes
+app.include_router(ide_compile.router,     prefix="/api/ide/compile",     tags=["IDE Compile"])
+app.include_router(ide_projects.router,    prefix="/api/ide/projects",    tags=["IDE Projects"])
+app.include_router(ide_deployments.router, prefix="/api/ide/deployments", tags=["IDE Deployments"])
 
 
 @app.get("/")
