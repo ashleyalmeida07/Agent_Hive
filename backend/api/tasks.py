@@ -299,7 +299,7 @@ def get_workspace_file(task_id: str, filename: str):
         raise HTTPException(status_code=400, detail="Invalid path")
     if not safe_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(safe_path, filename=safe_path.name)
+    return FileResponse(safe_path)
 
 
 @router.get("/{task_id}/download")
