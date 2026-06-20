@@ -28,11 +28,12 @@ function initAppKit() {
     projectId,
     networks,
     metadata: {
-      name: "AgentHive IDE",
-      description: "Multi-chain smart contract IDE",
+      name: "AgentHive",
+      description: "AgentHive AI Automation",
       url: typeof window !== "undefined" ? window.location.origin : "",
       icons: ["https://avatars.githubusercontent.com/u/37784886"],
     },
+    defaultNetwork: networks.find(n => n.id === 10143),
     features: { analytics: false },
     themeMode: "dark",
     themeVariables: {

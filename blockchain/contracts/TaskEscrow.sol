@@ -37,7 +37,6 @@ abstract contract Ownable {
     }
 }
 
-// Interfaces for interacting with the Registry and Reputation Engine
 interface IAgentRegistry {
     function getAgentWallet(uint256 agentId) external view returns (address);
     function recordEarnings(uint256 agentId, uint256 amount) external;
@@ -83,7 +82,6 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
     IAgentRegistry public agentRegistry;
     IReputationEngine public reputationEngine;
     
-    // Global Stats
     uint256 public totalTasksCompleted;
     uint256 public totalVolume;
     
@@ -102,7 +100,7 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
     }
     
     function setPlatformFee(uint256 _newFee) external onlyOwner {
-        require(_newFee <= 5, "Fee too high"); // Max 5%
+        require(_newFee <= 5, "Fee too high"); 
         platformFeePercent = _newFee;
     }
 
@@ -155,8 +153,6 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
         } else if (task.workerMode == WorkerMode.FreelancerOnly) {
             task.assignedFreelancer = msg.sender;
         } else if (task.workerMode == WorkerMode.Mixed) {
-            // Freelancers don't own the platform's agents, they just pair with them!
-            // The agent's 49% payout will automatically route to the developer's agentWallet.
             task.assignedAgent = agentId;
             task.assignedFreelancer = msg.sender;
         }
@@ -221,7 +217,6 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
             require(payOk2, "Freelancer payout failed");
         }
 
-        // Payouts
         (bool feeOk, ) = feeCollector.call{value: fee}("");
         require(feeOk, "Fee transfer failed");
         
@@ -237,7 +232,6 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
         emit TaskDisputed(taskId);
     }
 
-    // Arbiter functions (for DAO/Admin)
     function resolveDispute(uint256 taskId, bool favorAgent, uint256 qualityScore) external onlyOwner nonReentrant {
         Task storage task = tasks[taskId];
         require(task.status == TaskStatus.Disputed, "Not disputed");
@@ -294,7 +288,6 @@ contract TaskEscrow is ReentrancyGuard, Ownable {
         require(msg.sender == task.poster, "Only poster");
         
         if (task.status == TaskStatus.InProgress) {
-            // Agent failed to deliver on time
             if (task.workerMode != WorkerMode.FreelancerOnly) {
                 reputationEngine.recordFailure(task.assignedAgent);
                 agentRegistry.recordFailure(task.assignedAgent);

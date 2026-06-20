@@ -23,6 +23,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/data"
 import { useAuth } from "@/components/auth/auth-provider"
+import { ConnectWallet } from "@/components/app/connect-wallet"
 
 function UserAvatar({ name, avatarUrl, size = 'md' }: { name: string; avatarUrl?: string; size?: 'sm' | 'md' }) {
   const initials = name
@@ -267,6 +268,7 @@ export function AppShell({
               <Bell className="size-4.5" />
               <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary" />
             </button>
+            <ConnectWallet />
             <UserMenu />
           </div>
         </header>

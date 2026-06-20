@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from services.supabase_client import get_client
+from services.supabase_client import get_supabase
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ class UpdateProjectRequest(BaseModel):
 @router.post("/")
 async def create_project(req: CreateProjectRequest):
     """Create a new IDE project with optional initial files."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
@@ -63,7 +63,7 @@ async def create_project(req: CreateProjectRequest):
 @router.get("/user/{wallet_address}")
 async def get_user_projects(wallet_address: str):
     """Fetch all projects for a given wallet address."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
@@ -80,7 +80,7 @@ async def get_user_projects(wallet_address: str):
 @router.get("/{project_id}")
 async def get_project(project_id: str):
     """Fetch a single project with its files."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
@@ -95,7 +95,7 @@ async def get_project(project_id: str):
 @router.put("/{project_id}")
 async def update_project(project_id: str, req: UpdateProjectRequest):
     """Update project name and/or files (files are fully replaced)."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
@@ -122,7 +122,7 @@ async def update_project(project_id: str, req: UpdateProjectRequest):
 @router.delete("/{project_id}")
 async def delete_project(project_id: str):
     """Delete a project and cascade its files."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 

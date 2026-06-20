@@ -22,19 +22,17 @@ abstract contract Ownable {
     }
 }
 
-// Interfaces
 interface ITaskEscrow {
     function postTask(string memory taskType, string memory title, uint8 complexity, uint256 deadline, uint8 mode) external payable returns (uint256);
 }
 
 contract AgentCoordinator is Ownable {
-    
     struct MultiTask {
         uint256 rootTaskId;
         address poster;
         uint256 totalBounty;
         uint256[] subTaskIds;
-        mapping(uint256 => uint256) payoutShares; // subTaskId => percentage (1 to 100)
+        mapping(uint256 => uint256) payoutShares;
         bool isCompleted;
     }
 
@@ -50,10 +48,6 @@ contract AgentCoordinator is Ownable {
         escrowContract = _escrowContract;
     }
 
-    // Allows the orchestrator agent to submit a batch of subtasks
-    // The total shares must equal 100
-    // This is an advanced feature skeleton
-    
     struct SubTaskParams {
         string taskType;
         string title;
