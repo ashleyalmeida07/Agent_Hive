@@ -27,20 +27,10 @@ class PhotoAgent:
     """Runs a multi-turn tool-use loop with a Vision-capable LLM."""
 
     def __init__(self):
-        # Prefer explicit VISION config
-        base_url = os.getenv("VISION_LLM_BASE_URL")
-        api_key = os.getenv("VISION_LLM_API_KEY")
-        model = os.getenv("VISION_LLM_MODEL", "openai/gpt-4o-mini")
-        
-        # Fallback to OpenRouter since we use an OpenAI/OpenRouter model by default
-        if not base_url and os.getenv("OPENROUTER_API_KEY"):
-            base_url = "https://openrouter.ai/api/v1"
-            api_key = os.getenv("OPENROUTER_API_KEY")
-            
-        # Absolute fallback to standard LLM config (which might fail if it's Nvidia + openai model)
-        if not base_url:
-            base_url = os.getenv("LLM_BASE_URL", "https://integrate.api.nvidia.com/v1")
-            api_key = os.getenv("LLM_API_KEY", "")
+        # Use Pollinations.ai by default (free, no API key required)
+        base_url = os.getenv("VISION_LLM_BASE_URL", "https://text.pollinations.ai/openai")
+        api_key = os.getenv("VISION_LLM_API_KEY", "dummy")
+        model = os.getenv("VISION_LLM_MODEL", "openai")
 
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model = model
