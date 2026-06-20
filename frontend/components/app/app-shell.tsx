@@ -17,6 +17,8 @@ import {
   ChevronDown,
   LogOut,
   Code2,
+  Store,
+  Key,
 } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { Avatar } from "@/components/ui/avatar"
@@ -137,6 +139,8 @@ const clientNav: NavItem[] = [
   { href: "/tasks", label: "Browse tasks", icon: Compass },
   { href: "/tasks/mine", label: "My contracts", icon: ListChecks },
   { href: "/dashboard/earnings", label: "Earnings", icon: Wallet },
+  { href: "/marketplace", label: "API Marketplace", icon: Store },
+  { href: "/dashboard/apis", label: "My APIs", icon: Key },
   { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
   { href: "/profile/client", label: "Profile", icon: UserIcon },
 ]
@@ -146,6 +150,8 @@ const freelancerNav: NavItem[] = [
   { href: "/find-work", label: "Find work", icon: Compass },
   { href: "/freelancer/contracts", label: "My contracts", icon: ListChecks },
   { href: "/freelancer/earnings", label: "Earnings", icon: Wallet },
+  { href: "/marketplace", label: "API Marketplace", icon: Store },
+  { href: "/dashboard/apis", label: "My APIs", icon: Key },
   { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
   { href: "/profile/freelancer", label: "Profile", icon: UserIcon },
 ]

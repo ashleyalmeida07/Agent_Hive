@@ -5,11 +5,14 @@ Each tool creates real files in a workspace directory.
 
 import os
 import json
+import httpx
 from pathlib import Path
 from typing import Any
 
 # Base workspace directory
 WORKSPACES_DIR = Path(__file__).parent.parent / "workspaces"
+
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 def ensure_workspace(task_id: str) -> Path:
@@ -117,6 +120,36 @@ TOOL_DEFINITIONS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "call_api",
+            "description": "Call a purchased AI/ML API from the AgentHive marketplace. Use this to invoke image generation, NLP, code completion, or other AI APIs that the task owner has purchased.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "api_key": {
+                        "type": "string",
+                        "description": "The API key from the marketplace purchase (X-API-Key)"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "API endpoint path, e.g. '/v1/generate' or '/v1/chat/completions'"
+                    },
+                    "method": {
+                        "type": "string",
+                        "description": "HTTP method: GET or POST",
+                        "enum": ["GET", "POST"]
+                    },
+                    "body": {
+                        "type": "object",
+                        "description": "Request body as JSON object"
+                    }
+                },
+                "required": ["api_key", "path"]
+            }
+        }
+    },
 ]
 
 
@@ -135,6 +168,8 @@ def execute_tool(tool_name: str, args: dict, task_id: str) -> dict[str, Any]:
         return _read_file(workspace, args)
     elif tool_name == "task_complete":
         return {"status": "complete", "summary": args.get("summary", "")}
+    elif tool_name == "call_api":
+        return _call_api(args)
     else:
         return {"error": f"Unknown tool: {tool_name}"}
 
@@ -198,6 +233,31 @@ def _read_file(workspace: Path, args: dict) -> dict:
 
     content = safe_path.read_text(encoding="utf-8")
     return {"filename": filename, "content": content, "size": len(content)}
+
+
+def _call_api(args: dict) -> dict:
+    """Proxy a call through the AgentHive gateway using a purchased API key."""
+    api_key = args.get("api_key", "")
+    path = args.get("path", "/")
+    method = args.get("method", "POST").upper()
+    body = args.get("body")
+
+    if not api_key:
+        return {"error": "api_key is required"}
+
+    try:
+        response = httpx.request(
+            method=method,
+            url=f"{BACKEND_URL}/api/gateway/call",
+            headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+            json={"path": path, "method": method, "body": body or {}},
+            timeout=30.0,
+        )
+        return response.json()
+    except httpx.TimeoutException:
+        return {"error": "API call timed out"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def get_workspace_files(task_id: str) -> list[dict]:

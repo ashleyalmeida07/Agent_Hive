@@ -324,7 +324,7 @@ export default function TaskDetailPage() {
   useEffect(() => {
     if (selectedFile) {
       setIsLoadingFile(true)
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/files/${selectedFile}`)
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://agent-hive-ld3l.onrender.com"}/api/tasks/${task?.id || taskId}/files/${selectedFile}`)
         .then((res) => res.text())
         .then((text) => {
           setFileContent(text)
@@ -365,7 +365,7 @@ export default function TaskDetailPage() {
           setAgentQuality(data.quality_score || 0)
           
           // Fetch files from workspace
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${taskId}/files`)
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://agent-hive-ld3l.onrender.com"}/api/tasks/${taskId}/files`)
             .then(r => r.json())
             .then(res => {
               if (res.files && res.files.length > 0) {
@@ -393,8 +393,7 @@ export default function TaskDetailPage() {
     setPhases([])
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/api/tasks/${taskId}/execute`, {
+      const res = await fetch(`https://agent-hive-ld3l.onrender.com/api/tasks/${taskId}/execute`, {
         method: "POST",
       })
 
@@ -518,8 +517,7 @@ export default function TaskDetailPage() {
 
   const fetchApplications = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      const res = await fetch(`${apiUrl}/api/tasks/${taskId}/applications`)
+      const res = await fetch(`https://agent-hive-ld3l.onrender.com/api/tasks/${taskId}/applications`)
       const data = await res.json()
       if (data.applications) setApplications(data.applications)
     } catch (e) {
@@ -537,8 +535,7 @@ export default function TaskDetailPage() {
     if (!user || !coverLetter) return
     setLoadingApp(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      await fetch(`${apiUrl}/api/tasks/${taskId}/apply`, {
+      await fetch(`https://agent-hive-ld3l.onrender.com/api/tasks/${taskId}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ freelancer_id: user.id, cover_letter: coverLetter })
@@ -553,8 +550,7 @@ export default function TaskDetailPage() {
 
   const handleAccept = async (appId: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      await fetch(`${apiUrl}/api/tasks/${taskId}/applications/${appId}/accept`, { method: "POST" })
+      await fetch(`https://agent-hive-ld3l.onrender.com/api/tasks/${taskId}/applications/${appId}/accept`, { method: "POST" })
       window.location.reload()
     } catch (e) {}
   }
@@ -563,8 +559,7 @@ export default function TaskDetailPage() {
     if (!workSubmission) return
     setLoadingApp(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-      await fetch(`${apiUrl}/api/tasks/${taskId}/submit`, {
+      await fetch(`https://agent-hive-ld3l.onrender.com/api/tasks/${taskId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submission: workSubmission })
@@ -581,7 +576,7 @@ export default function TaskDetailPage() {
     }
     try {
       const txHash = await approveTask("approveAndRelease", [task.onchain_task_id, 100]);
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${taskId}/approve_work`, { 
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://agent-hive-ld3l.onrender.com"}/api/tasks/${taskId}/approve_work`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ payout_tx_hash: txHash })
@@ -813,7 +808,7 @@ export default function TaskDetailPage() {
                         
                         {createdFiles.length > 0 && (
                           <a
-                            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/download`}
+                            href={`${process.env.NEXT_PUBLIC_API_URL || "https://agent-hive-ld3l.onrender.com"}/api/tasks/${task?.id || taskId}/download`}
                             className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
                           >
                             <Download className="size-4" />
@@ -833,7 +828,7 @@ export default function TaskDetailPage() {
                         <div className="absolute inset-0 w-full h-full p-4">
                           <div className="w-full h-full bg-white rounded-xl overflow-hidden border border-border shadow-2xl relative">
                             <iframe 
-                              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/files/index.html`}
+                              src={`${process.env.NEXT_PUBLIC_API_URL || "https://agent-hive-ld3l.onrender.com"}/api/tasks/${task?.id || taskId}/files/index.html`}
                               className="w-full h-full border-0 absolute inset-0"
                               title="Project Preview"
                             />
