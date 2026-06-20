@@ -10,12 +10,12 @@ import asyncio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
-    print("🐝 AgentHive API starting up...")
+    print("[INFO] AgentHive API starting up...")
     init_supabase()
     polling_task = asyncio.create_task(start_agent_polling())
-    print("✅ Supabase connected. Agent polling started.")
+    print("[INFO] Supabase connected. Agent polling started.")
     yield
-    print("🛑 Shutting down...")
+    print("[INFO] Shutting down...")
     polling_task.cancel()
     try:
         await polling_task

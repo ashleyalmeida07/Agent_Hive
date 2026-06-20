@@ -22,6 +22,10 @@ import {
   FileSearch,
   Code2,
   Search,
+  Lightbulb,
+  Wrench,
+  FolderOpen,
+  File,
 } from "lucide-react"
 import { AppShell } from "@/components/app/app-shell"
 import { Card } from "@/components/ui/card"
@@ -228,12 +232,12 @@ function AgentOutputDisplay({ output }: { output: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 overflow-hidden w-full max-w-full">
       {parts.map((part, i) =>
         part.type === "code" ? (
           <CodeBlock key={i} code={part.content} filename={part.filename} />
         ) : (
-          <div key={i} className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          <div key={i} className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
             {part.content}
           </div>
         ),
@@ -262,6 +266,7 @@ function AgentProgressBar({ progress }: { progress: number }) {
 const phaseIconMap: Record<string, typeof Brain> = {
   understanding: FileSearch,
   planning: Brain,
+  thinking: Lightbulb,
   analyzing: Search,
   executing: Code2,
   validating: Shield,
@@ -282,11 +287,15 @@ export default function TaskDetailPage() {
   const [phases, setPhases] = useState<Phase[]>([])
   const [agentOutput, setAgentOutput] = useState<string | null>(null)
   const [streamingOutput, setStreamingOutput] = useState<string>("") // live token buffer
+  const [reasoningOutput, setReasoningOutput] = useState<string>("") // thinking tokens
   const [agentSummary, setAgentSummary] = useState<string | null>(null)
   const [agentQuality, setAgentQuality] = useState<number>(0)
   const [agentError, setAgentError] = useState<string | null>(null)
+  const [createdFiles, setCreatedFiles] = useState<{name: string, size: number}[]>([])
+  const [toolCalls, setToolCalls] = useState<{name: string, args: any}[]>([])
   const phaseStartTimes = useRef<Record<string, number>>({})
   const streamEndRef = useRef<HTMLDivElement>(null)
+  const thinkingEndRef = useRef<HTMLDivElement>(null)
 
   const userName =
     user?.user_metadata?.full_name ||
@@ -319,6 +328,9 @@ export default function TaskDetailPage() {
     setAgentRunning(true)
     setAgentOutput(null)
     setStreamingOutput("")
+    setReasoningOutput("")
+    setCreatedFiles([])
+    setToolCalls([])
     setAgentError(null)
     setPhases([])
 
@@ -391,21 +403,41 @@ export default function TaskDetailPage() {
               )
             }
 
+            if (event.type === "reasoning") {
+              setReasoningOutput((prev) => {
+                const next = prev + event.text
+                requestAnimationFrame(() => thinkingEndRef.current?.scrollIntoView({ behavior: "smooth" }))
+                return next
+              })
+            }
+
             if (event.type === "token") {
               setStreamingOutput((prev) => {
                 const next = prev + event.text
-                // auto-scroll
                 requestAnimationFrame(() => streamEndRef.current?.scrollIntoView({ behavior: "smooth" }))
                 return next
               })
             }
 
+            if (event.type === "tool_call") {
+              setToolCalls((prev) => [...prev, { name: event.name, args: event.args }])
+            }
+
+            if (event.type === "file_created") {
+              setCreatedFiles((prev) => [...prev, { name: event.filename, size: event.size }])
+            }
+
             if (event.type === "complete") {
-              setAgentOutput(event.output)
-              setStreamingOutput("") // clear live buffer, show parsed output
+              const files = event.files || []
+              if (files.length > 0) {
+                setCreatedFiles(files)
+              }
+              setAgentOutput(event.summary || "Task complete")
+              setStreamingOutput("")
+              setReasoningOutput("")
               setAgentSummary(event.summary)
-              setAgentQuality(event.quality)
-              setTask((prev: any) => ({ ...prev, status: "review", result_content: event.output }))
+              setAgentQuality(event.quality || 0)
+              setTask((prev: any) => ({ ...prev, status: "review" }))
             }
 
             if (event.type === "error") {
@@ -473,7 +505,7 @@ export default function TaskDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
         {/* Left */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 min-w-0">
           <Card className="p-6">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-muted-foreground">{task.category || task.task_type}</span>
@@ -505,7 +537,7 @@ export default function TaskDetailPage() {
                     {agentOutput ? "Agent completed" : agentRunning ? "Agent is working..." : "AI Agent Execution"}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    {agentOutput ? `Quality score: ${agentQuality}/100` : agentRunning ? `Processing with Nvidia NIM` : `${executorInfo.label} • Ready to execute`}
+                    {agentOutput ? `Quality score: ${agentQuality}/100` : agentRunning ? `Nemotron Ultra 550B • Reasoning enabled` : `${executorInfo.label} • Ready to execute`}
                   </p>
                 </div>
                 {!agentRunning && !agentOutput && (
@@ -531,6 +563,25 @@ export default function TaskDetailPage() {
                 </div>
               )}
 
+              {/* Live reasoning stream — shows agent's chain-of-thought */}
+              {reasoningOutput && !agentOutput && (
+                <div className="border-t border-border p-5">
+                  <div className="rounded-xl border border-amber-500/20 bg-[#1a1500] overflow-hidden">
+                    <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/5 px-4 py-2">
+                      <Lightbulb className="size-3.5 text-amber-400 animate-pulse" />
+                      <span className="text-xs text-amber-400/80 font-mono font-medium">Agent Thinking...</span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto p-4">
+                      <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-amber-200/60 italic">
+                        {reasoningOutput}
+                        <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-amber-400" />
+                      </pre>
+                      <div ref={thinkingEndRef} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Live token stream — shows while executing phase is active */}
               {streamingOutput && !agentOutput && (
                 <div className="border-t border-border p-5">
@@ -540,7 +591,7 @@ export default function TaskDetailPage() {
                         <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                         <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
                       </span>
-                      <span className="text-xs text-muted-foreground font-mono">AI generating output...</span>
+                      <span className="text-xs text-muted-foreground font-mono">Generating deliverables...</span>
                     </div>
                     <div className="max-h-96 overflow-y-auto p-4">
                       <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-emerald-300/90">
@@ -565,21 +616,78 @@ export default function TaskDetailPage() {
                 </div>
               )}
 
+              {/* Live file creation activity */}
+              {createdFiles.length > 0 && !agentOutput && (
+                <div className="border-t border-border p-5">
+                  <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                    <div className="flex items-center gap-2 text-cyan-400 mb-3">
+                      <FolderOpen className="size-4" />
+                      <span className="text-sm font-semibold">Files Created ({createdFiles.length})</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {createdFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <File className="size-3 text-cyan-400/60" />
+                          <span className="font-mono text-foreground/80">{f.name}</span>
+                          <span className="text-muted-foreground">({(f.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {agentOutput && (
                 <div className="border-t border-border p-5">
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-emerald-400">
                         <Sparkles className="size-4" />
                         <span className="text-sm font-semibold">Agent Deliverables</span>
                       </div>
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-                        Quality: {agentQuality}/100
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+                          Quality: {agentQuality}/100
+                        </span>
+                        {createdFiles.length > 0 && (
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/download`}
+                            className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                          >
+                            <Download className="size-3.5" />
+                            Download ZIP
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-4">
-                      <AgentOutputDisplay output={agentOutput} />
-                    </div>
+
+                    {/* File tree */}
+                    {createdFiles.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                          <FolderOpen className="size-4" />
+                          <span className="font-mono">{createdFiles.length} files created</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-[#0d1117] divide-y divide-border/40">
+                          {createdFiles.map((file, i) => (
+                            <div key={i} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary/10 transition-colors">
+                              <div className="flex items-center gap-2.5">
+                                <FileCode2 className="size-4 text-emerald-400/70" />
+                                <span className="text-sm font-mono text-foreground/90">{file.name}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                            </div>
+                          ))}
+                        </div>
+                        {agentSummary && (
+                          <p className="mt-3 text-xs text-muted-foreground">{agentSummary}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4">
+                        <AgentOutputDisplay output={agentOutput} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

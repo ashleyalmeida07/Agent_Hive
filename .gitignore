@@ -46,3 +46,13 @@ typechain-types/
 *.bak
 coverage/
 .nyc_output/
+
+
+
+
+backend/claude-code-system-prompts-main
+
+backend/free-claude-code-main
+
+# Workspaces
+backend/workspaces/

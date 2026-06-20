@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from services.supabase_client import get_supabase
-from agents.general_agent import GeneralAgent
+from agents.agentic_executor import AgenticExecutor
+from agents.tools import get_workspace_files, WORKSPACES_DIR
 from datetime import datetime
-import json, asyncio
+import json, asyncio, zipfile, io
+from pathlib import Path
 
 router = APIRouter()
 
@@ -19,6 +21,10 @@ class CreateTaskRequest(BaseModel):
     bounty_amount: float
     deadline: Optional[str] = None
     tags: list = []
+
+
+def sse(data: dict) -> str:
+    return f"data: {json.dumps(data)}\n\n"
 
 
 @router.get("/")
@@ -71,12 +77,11 @@ def get_task(task_id: int):
 
 @router.post("/{task_id}/execute")
 async def execute_task(task_id: str):
-    """Execute a task using the AI agent. Streams progress + LLM tokens as SSE events."""
+    """Execute a task using the agentic tool-use loop. Streams progress as SSE."""
     db = get_supabase()
     if not db:
         raise HTTPException(status_code=500, detail="Database not available")
 
-    # Fetch task by UUID
     result = db.table("tasks").select("*").eq("id", task_id).execute()
     if not result.data:
         try:
@@ -89,90 +94,124 @@ async def execute_task(task_id: str):
     task = result.data[0]
 
     async def event_stream():
-        agent = GeneralAgent(agent_id=1)
+        executor = AgenticExecutor()
+        event_queue: asyncio.Queue = asyncio.Queue()
 
-        # ── Pre-execution phases ─────────────────────────────
+        def on_event(event: dict):
+            event_queue.put_nowait(event)
+
+        # ── Pre-execution phases (quick UI animation) ────────
         pre_phases = [
             ("understanding", "Understanding the task", [
                 "Reading task description...",
-                f"Identified type: {task.get('category', task.get('task_type', 'general'))}",
-                f"Parsed {len(task.get('description', '').split())} words of specification",
+                f"Type: {task.get('category', task.get('task_type', 'general'))}",
+                f"Parsed {len(task.get('description', '').split())} words",
                 "Requirements mapped ✓",
             ]),
             ("planning", "Planning approach", [
-                "Decomposing into subtasks...",
-                "Selecting optimal strategy...",
+                "Analyzing requirements...",
+                "Selecting tools and strategy...",
                 "Execution plan ready ✓",
             ]),
         ]
 
         for phase_id, phase_label, thoughts in pre_phases:
-            yield f"data: {json.dumps({'type': 'phase_start', 'phase': phase_id, 'label': phase_label})}\n\n"
+            yield sse({"type": "phase_start", "phase": phase_id, "label": phase_label})
             for thought in thoughts:
-                await asyncio.sleep(0.35)
-                yield f"data: {json.dumps({'type': 'thought', 'phase': phase_id, 'text': thought})}\n\n"
-            yield f"data: {json.dumps({'type': 'phase_done', 'phase': phase_id})}\n\n"
+                await asyncio.sleep(0.3)
+                yield sse({"type": "thought", "phase": phase_id, "text": thought})
+            yield sse({"type": "phase_done", "phase": phase_id})
 
-        # ── LLM execution phase ──────────────────────────────
-        yield f"data: {json.dumps({'type': 'phase_start', 'phase': 'executing', 'label': 'Generating deliverables'})}\n\n"
-        await asyncio.sleep(0.2)
-        yield f"data: {json.dumps({'type': 'thought', 'phase': 'executing', 'text': f'Calling {agent.model}...'})}\n\n"
+        # ── Agentic execution phase ──────────────────────────
+        yield sse({"type": "phase_start", "phase": "executing", "label": "Agent executing"})
+        yield sse({"type": "thought", "phase": "executing", "text": f"Model: {executor.model}"})
+        yield sse({"type": "thought", "phase": "executing", "text": "Starting agentic tool-use loop..."})
 
-        output_chunks = []
-        token_queue: asyncio.Queue = asyncio.Queue()
+        # Run the executor in a thread (it's blocking)
+        def run_executor():
+            executor.run(task, task_id, on_event)
+            event_queue.put_nowait(None)
 
-        def run_stream():
-            """Run blocking LLM stream in a thread, push tokens to queue."""
-            try:
-                for token in agent.execute_stream(task):
-                    token_queue.put_nowait(token)
-            finally:
-                token_queue.put_nowait(None)  # sentinel
+        asyncio.get_event_loop().run_in_executor(None, run_executor)
 
-        # Start stream in a thread so we don't block the event loop
-        stream_task = asyncio.get_event_loop().run_in_executor(None, run_stream)
+        files_created = []
 
-        # Forward tokens to SSE as they arrive
+        # Forward events to SSE
         while True:
             try:
-                token = await asyncio.wait_for(token_queue.get(), timeout=60.0)
+                event = await asyncio.wait_for(event_queue.get(), timeout=180.0)
             except asyncio.TimeoutError:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'LLM timeout'})}\n\n"
+                yield sse({"type": "error", "message": "Agent timeout (180s)"})
                 return
-            if token is None:
+            if event is None:
                 break
-            output_chunks.append(token)
-            yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
 
-        await stream_task  # ensure thread is done
+            evt_type = event.get("type")
 
-        output = "".join(output_chunks)
-        word_count = len(output.split())
-        quality = min(95, 60 + word_count // 20)
-        summary = f"Completed: {task.get('title', 'Task')} ({word_count} words)"
+            if evt_type == "iteration":
+                yield sse({"type": "thought", "phase": "executing", "text": f"Iteration {event['current']}/{event['max']}"})
 
-        yield f"data: {json.dumps({'type': 'thought', 'phase': 'executing', 'text': f'Generated {word_count} words ✓'})}\n\n"
-        yield f"data: {json.dumps({'type': 'phase_done', 'phase': 'executing'})}\n\n"
+            elif evt_type == "thinking":
+                yield sse({"type": "reasoning", "text": event["text"]})
+
+            elif evt_type == "content":
+                yield sse({"type": "token", "text": event["text"]})
+
+            elif evt_type == "tool_call":
+                name = event["name"]
+                args = event.get("args", {})
+                truncated = {}
+                for k, v in args.items():
+                    if isinstance(v, str) and len(v) > 100:
+                        truncated[k] = v[:100] + "..."
+                    else:
+                        truncated[k] = v
+                yield sse({"type": "tool_call", "name": name, "args": truncated})
+                if name == "create_file":
+                    yield sse({"type": "thought", "phase": "executing", "text": f"📄 Creating {args.get('filename', 'file')}..."})
+
+            elif evt_type == "tool_result":
+                name = event["name"]
+                res = event.get("result", {})
+                if name in ("create_file", "edit_file") and res.get("status") in ("created", "updated"):
+                    fname = res.get("filename", "")
+                    fsize = res.get("size", 0)
+                    files_created.append({"name": fname, "size": fsize})
+                    yield sse({"type": "file_created", "filename": fname, "size": fsize})
+                    yield sse({"type": "thought", "phase": "executing", "text": f"✅ {fname} ({fsize} bytes)"})
+                elif res.get("error"):
+                    yield sse({"type": "thought", "phase": "executing", "text": f"⚠️ {res['error']}"})
+
+            elif evt_type == "error":
+                yield sse({"type": "error", "message": event["message"]})
+
+            elif evt_type == "complete":
+                complete_files = event.get("files", [])
+                if complete_files:
+                    files_created = [{"name": f["name"], "size": f.get("size", 0)} for f in complete_files]
+
+        yield sse({"type": "phase_done", "phase": "executing"})
 
         # ── Validation phase ─────────────────────────────────
-        yield f"data: {json.dumps({'type': 'phase_start', 'phase': 'validating', 'label': 'Validating output'})}\n\n"
+        file_count = len(files_created)
+        quality = min(95, 60 + file_count * 8)
+
+        yield sse({"type": "phase_start", "phase": "validating", "label": "Validating output"})
         await asyncio.sleep(0.3)
-        yield f"data: {json.dumps({'type': 'thought', 'phase': 'validating', 'text': 'Running quality checks...'})}\n\n"
-        await asyncio.sleep(0.3)
-        yield f"data: {json.dumps({'type': 'thought', 'phase': 'validating', 'text': f'Quality score: {quality}/100'})}\n\n"
+        yield sse({"type": "thought", "phase": "validating", "text": f"{file_count} files created"})
         await asyncio.sleep(0.2)
-        yield f"data: {json.dumps({'type': 'thought', 'phase': 'validating', 'text': 'Validation passed ✓'})}\n\n"
-        yield f"data: {json.dumps({'type': 'phase_done', 'phase': 'validating'})}\n\n"
+        yield sse({"type": "thought", "phase": "validating", "text": f"Quality score: {quality}/100"})
+        await asyncio.sleep(0.2)
+        yield sse({"type": "thought", "phase": "validating", "text": "Validation passed ✓"})
+        yield sse({"type": "phase_done", "phase": "validating"})
 
         # ── Save to DB ────────────────────────────────────────
+        file_names = ", ".join(f["name"] for f in files_created[:5])
+        summary = f"Created {file_count} files: {file_names}"
         try:
-            import hashlib
-            result_hash = hashlib.sha256(output.encode()).hexdigest()
             db.table("tasks").update({
                 "status": "review",
-                "result_content": output,
                 "result_summary": summary,
-                "result_hash": result_hash,
                 "quality_score": quality,
                 "completed_at": datetime.utcnow().isoformat(),
             }).eq("id", task["id"]).execute()
@@ -180,11 +219,57 @@ async def execute_task(task_id: str):
             pass
 
         # ── Done ──────────────────────────────────────────────
-        yield f"data: {json.dumps({'type': 'complete', 'output': output, 'summary': summary, 'quality': quality})}\n\n"
+        yield sse({
+            "type": "complete",
+            "files": files_created,
+            "summary": summary,
+            "quality": quality,
+            "file_count": file_count,
+        })
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+# ── Workspace file endpoints ────────────────────────────────────
+
+@router.get("/{task_id}/files")
+def list_workspace_files(task_id: str):
+    files = get_workspace_files(task_id)
+    return {"files": files, "count": len(files)}
+
+
+@router.get("/{task_id}/files/{filename:path}")
+def get_workspace_file(task_id: str, filename: str):
+    workspace = WORKSPACES_DIR / task_id
+    safe_path = workspace / filename
+    if not str(safe_path.resolve()).startswith(str(workspace.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not safe_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(safe_path, filename=safe_path.name)
+
+
+@router.get("/{task_id}/download")
+def download_workspace(task_id: str):
+    workspace = WORKSPACES_DIR / task_id
+    if not workspace.exists():
+        raise HTTPException(status_code=404, detail="No workspace found")
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fp in workspace.rglob("*"):
+            if fp.is_file():
+                zf.write(fp, str(fp.relative_to(workspace)))
+    zip_buffer.seek(0)
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=task-{task_id[:8]}-deliverables.zip"},
+    )
+
+
+# ── Legacy endpoints ────────────────────────────────────────────
 
 @router.post("/{task_id}/approve")
 def approve_task(task_id: int, poster_address: str):
