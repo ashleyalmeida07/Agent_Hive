@@ -11,7 +11,7 @@ import { ConnectWallet } from '@/components/app/connect-wallet'
 const links = [
   { label: 'How it works', href: '#process' },
   { label: 'Services', href: '#services' },
-  { label: 'Find work', href: '#tasks' },
+  { label: 'Find work', href: '/find-work' },
   { label: 'Benefits', href: '#benefits' },
   { label: 'FAQs', href: '#faqs' },
 ]

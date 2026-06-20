@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 from services.supabase_client import get_supabase
 from agents.agentic_executor import AgenticExecutor
+from agents.photo_agent import PhotoAgent
+from agents.research_agent import ResearchAgent
 from agents.tools import get_workspace_files, WORKSPACES_DIR
 from datetime import datetime
 import json, asyncio, zipfile, io
@@ -123,9 +125,25 @@ async def execute_task(task_id: str):
             yield sse({"type": "phase_done", "phase": phase_id})
 
         # ── Agentic execution phase ──────────────────────────
-        yield sse({"type": "phase_start", "phase": "executing", "label": "Agent executing"})
+        
+        # Determine agent type from description
+        agent_type = "coding"
+        desc = task.get("description", "")
+        if "Agent Type: photo" in desc:
+            agent_type = "photo"
+        elif "Agent Type: research" in desc:
+            agent_type = "research"
+            
+        if agent_type == "photo":
+            executor = PhotoAgent()
+        elif agent_type == "research":
+            executor = ResearchAgent()
+        else:
+            executor = AgenticExecutor()
+            
+        yield sse({"type": "phase_start", "phase": "executing", "label": f"{agent_type.capitalize()} Agent executing"})
         yield sse({"type": "thought", "phase": "executing", "text": f"Model: {executor.model}"})
-        yield sse({"type": "thought", "phase": "executing", "text": "Starting agentic tool-use loop..."})
+        yield sse({"type": "thought", "phase": "executing", "text": f"Starting {agent_type} tool-use loop..."})
 
         # Run the executor in a thread (it's blocking)
         def run_executor():

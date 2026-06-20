@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bot, User, Users, Check, ArrowRight, Building2, Wallet, Loader2 } from "lucide-react"
+import { Bot, User, Users, Check, ArrowRight, Building2, Wallet, Loader2, Code, Image as ImageIcon, Search as ResearchIcon } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,9 @@ export function CreateTaskForm() {
   const [budget, setBudget] = useState(0.01)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
+
+  const [agentType, setAgentType] = useState<"coding" | "photo" | "research">("coding")
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const split = getPaymentSplit(executor)
   const amounts = useMemo(() => splitAmount(executor, budget), [executor, budget])
@@ -93,9 +96,34 @@ export function CreateTaskForm() {
         user.email?.split("@")[0] ||
         "Anonymous"
 
+      let imageUrl = null;
+      if (executor === "agent" && agentType === "photo" && imageFile) {
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('task_assets')
+          .upload(fileName, imageFile)
+        
+        if (uploadError) {
+          throw new Error("Failed to upload image: " + uploadError.message)
+        }
+        
+        const { data: publicUrlData } = supabase.storage.from('task_assets').getPublicUrl(fileName)
+        imageUrl = publicUrlData.publicUrl
+      }
+
+      // Append agent info to description to avoid schema changes
+      let finalDescription = description;
+      if (executor === "agent") {
+        finalDescription += `\n\n--- Agent Config ---\nAgent Type: ${agentType}`;
+        if (imageUrl) {
+          finalDescription += `\nImage URL: ${imageUrl}`;
+        }
+      }
+
       const { error: insertError } = await supabase.from("tasks").insert({
         title,
-        description,
+        description: finalDescription,
         task_type: category.toLowerCase(),
         category,
         executor_type: executor,
@@ -233,6 +261,64 @@ export function CreateTaskForm() {
               )
             })}
           </div>
+
+          {/* Agent Type Selection */}
+          {(executor === "agent" || executor === "both") && (
+            <div className="mt-5 border-t border-border pt-5">
+              <Label>Select Specialized Agent</Label>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                {[
+                  { id: "coding", label: "Coding Agent", icon: Code, desc: "Builds apps and writes code." },
+                  { id: "photo", label: "Photo Agent", icon: ImageIcon, desc: "Analyzes and processes images." },
+                  { id: "research", label: "Research Agent", icon: ResearchIcon, desc: "Gathers data and writes reports." },
+                ].map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setAgentType(a.id as any)}
+                    className={cn(
+                      "relative rounded-xl border p-4 text-left transition-colors",
+                      agentType === a.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-secondary/40 hover:border-primary/40",
+                    )}
+                  >
+                    {agentType === a.id && (
+                      <span className="absolute right-3 top-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3" />
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-lg",
+                        agentType === a.id
+                          ? "bg-primary/20 text-primary"
+                          : "bg-secondary text-muted-foreground",
+                      )}
+                    >
+                      <a.icon className="size-4.5" />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold">{a.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{a.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {agentType === "photo" && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <Label htmlFor="imageFile">Upload Photo/Image</Label>
+                  <Input
+                    id="imageFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">Required for the Photo Agent to process.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-5 flex flex-col gap-2">
             <Label htmlFor="budget">Budget (MON)</Label>

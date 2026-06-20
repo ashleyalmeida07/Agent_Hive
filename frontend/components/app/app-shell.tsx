@@ -143,7 +143,7 @@ const clientNav: NavItem[] = [
 
 const freelancerNav: NavItem[] = [
   { href: "/freelancer", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tasks", label: "Find work", icon: Compass },
+  { href: "/find-work", label: "Find work", icon: Compass },
   { href: "/freelancer/contracts", label: "My contracts", icon: ListChecks },
   { href: "/freelancer/earnings", label: "Earnings", icon: Wallet },
   { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
