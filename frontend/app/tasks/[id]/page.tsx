@@ -520,7 +520,7 @@ export default function TaskDetailPage() {
   }
 
   useEffect(() => {
-    if (task && (task.executor_type === 'human' || task.executor_type === 'both')) {
+    if (task && (task.executor_type === 'human' || task.executor_type === 'freelancer' || task.executor_type === 'both')) {
       fetchApplications()
     }
   }, [task?.executor_type])
