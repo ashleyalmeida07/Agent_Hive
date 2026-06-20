@@ -346,7 +346,7 @@ function SplitRow({
       </span>
       <span className="text-right">
         <span className="block text-sm font-semibold">
-          ${amount.toLocaleString()}
+          {amount.toLocaleString()} MON
         </span>
         <span className="block text-xs text-muted-foreground">{pct}%</span>
       </span>

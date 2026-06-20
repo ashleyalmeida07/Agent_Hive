@@ -657,7 +657,7 @@ export default function TaskDetailPage() {
             <div className="mt-5 flex items-center gap-6 border-t border-border pt-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5"><User className="size-4" />{task.poster_name || "Anonymous"}</span>
               <span className="flex items-center gap-1.5"><Clock className="size-4" />{new Date(task.created_at).toLocaleDateString()}</span>
-              <span className="font-heading text-lg font-semibold text-foreground">${Number(task.bounty_amount).toLocaleString()}</span>
+              <span className="font-heading text-lg font-semibold text-foreground">{Number(task.bounty_amount).toLocaleString()} MON</span>
             </div>
           </Card>
 
@@ -1029,15 +1029,15 @@ export default function TaskDetailPage() {
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Bounty</span>
-                <span className="font-medium">${Number(task.bounty_amount).toLocaleString()}</span>
+                <span className="font-medium">{Number(task.bounty_amount).toLocaleString()} MON</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Platform fee (5%)</span>
-                <span className="font-medium">${Math.round(Number(task.bounty_amount) * 0.05).toLocaleString()}</span>
+                <span className="font-medium">{Math.round(Number(task.bounty_amount) * 0.05).toLocaleString()} MON</span>
               </div>
               <div className="flex justify-between border-t border-border pt-2 font-semibold">
                 <span>Total</span>
-                <span className="font-heading text-base">${Math.round(Number(task.bounty_amount) * 1.05).toLocaleString()}</span>
+                <span className="font-heading text-base">{Math.round(Number(task.bounty_amount) * 1.05).toLocaleString()} MON</span>
               </div>
             </div>
           </Card>
