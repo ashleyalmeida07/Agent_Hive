@@ -16,10 +16,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Risenix — Smart AI Automation for Your Business',
+  title: 'AgentHive — Smart AI Automation for Your Business',
   description:
-    'Risenix is an AI automation agency building intelligent workflows designed to multiply productivity and growth across complex business operations.',
-  generator: 'v0.app',
+    'AgentHive is an AI automation agency building intelligent workflows designed to multiply productivity and growth across complex business operations.',
 }
 
 export const viewport: Viewport = {

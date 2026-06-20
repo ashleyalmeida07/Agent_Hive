@@ -1,4 +1,7 @@
-import { MapPin, Star, Briefcase, BadgeCheck, Plus } from "lucide-react"
+"use client"
+
+import { useEffect, useState } from "react"
+import { MapPin, Star, Briefcase, BadgeCheck, Plus, Loader2 } from "lucide-react"
 import { AppShell } from "@/components/app/app-shell"
 import { PageHeader, StatCard } from "@/components/app/page-header"
 import { Card } from "@/components/ui/card"
@@ -8,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
-import { currentFreelancer } from "@/lib/data"
+import { useAuth } from "@/components/auth/auth-provider"
 
 const portfolio = [
   { title: "Realtime lead scoring", tag: "Automation" },
@@ -17,9 +20,28 @@ const portfolio = [
 ]
 
 export default function FreelancerProfilePage() {
-  const f = currentFreelancer
+  const { user } = useAuth()
+  
+  const name =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "Freelancer"
+
+  const [f] = useState({
+    title: "Senior AI & Automation Engineer",
+    bio: "I build specialized agents and data pipelines using modern stacks. Ex-Google, open-source contributor.",
+    hourly: 85,
+    location: "Remote",
+    rating: 4.9,
+    reviews: 142,
+    skills: ["Python", "LangChain", "Next.js", "PostgreSQL", "Supabase"],
+    completed: 89,
+    earned: "$124k+",
+  })
+
   return (
-    <AppShell role="freelancer" userName={f.name}>
+    <AppShell role="freelancer" userName={name}>
       <PageHeader
         title="My profile"
         subtitle="This is how clients see you across the marketplace."
@@ -30,10 +52,10 @@ export default function FreelancerProfilePage() {
         <div className="flex flex-col gap-6">
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <Avatar name={f.name} className="size-16 text-lg" />
+              <Avatar name={name} className="size-16 text-lg" />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-heading text-xl font-semibold">{f.name}</h2>
+                  <h2 className="font-heading text-xl font-semibold">{name}</h2>
                   <BadgeCheck className="size-4.5 text-primary" />
                 </div>
                 <p className="text-sm text-muted-foreground">{f.title}</p>

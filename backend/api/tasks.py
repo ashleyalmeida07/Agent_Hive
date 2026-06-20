@@ -135,6 +135,7 @@ async def execute_task(task_id: str):
         asyncio.get_event_loop().run_in_executor(None, run_executor)
 
         files_created = []
+        full_content_text = []
 
         # Forward events to SSE
         while True:
@@ -155,6 +156,7 @@ async def execute_task(task_id: str):
                 yield sse({"type": "reasoning", "text": event["text"]})
 
             elif evt_type == "content":
+                full_content_text.append(event["text"])
                 yield sse({"type": "token", "text": event["text"]})
 
             elif evt_type == "tool_call":
@@ -206,12 +208,63 @@ async def execute_task(task_id: str):
         yield sse({"type": "phase_done", "phase": "validating"})
 
         # ── Save to DB ────────────────────────────────────────
-        file_names = ", ".join(f["name"] for f in files_created[:5])
-        summary = f"Created {file_count} files: {file_names}"
+        full_text = "".join(full_content_text)
+        
+        # If no files were created via tools, try to extract code blocks from text
+        if not files_created and full_text:
+            import re
+            code_block_pattern = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+            matches = code_block_pattern.findall(full_text)
+            
+            extracted_files = []
+            for lang, content in matches:
+                lang = lang.strip().lower()
+                if not lang:
+                    continue
+                
+                filename = f"file.{lang}"
+                first_line = content.split('\n', 1)[0].strip()
+                if first_line.startswith('//') or first_line.startswith('#') or first_line.startswith('<!--'):
+                    fname_match = re.search(r'([a-zA-Z0-9_\-\.]+\.\w+)', first_line)
+                    if fname_match:
+                        filename = fname_match.group(1)
+                
+                if filename == f"file.{lang}":
+                    if lang in ('html', 'xml'): filename = "index.html"
+                    elif lang == 'css': filename = "styles.css"
+                    elif lang in ('js', 'javascript'): filename = "script.js"
+                    elif lang in ('ts', 'typescript'): filename = "script.ts"
+                    elif lang == 'json': filename = "data.json"
+                
+                extracted_files.append({"name": filename, "content": content})
+            
+            if extracted_files:
+                workspace = WORKSPACES_DIR / str(task_id)
+                workspace.mkdir(parents=True, exist_ok=True)
+                for ef in extracted_files:
+                    fpath = workspace / ef["name"]
+                    try:
+                        with open(fpath, "w", encoding="utf-8") as f:
+                            f.write(ef["content"])
+                        files_created.append({"name": ef["name"], "size": len(ef["content"].encode('utf-8'))})
+                    except Exception:
+                        pass
+        
+        if files_created:
+            file_count = len(files_created)
+            quality = min(95, 60 + file_count * 8)
+            file_names = ", ".join(f["name"] for f in files_created[:5])
+            summary = f"Created {file_count} files: {file_names}"
+            result_content = summary
+        else:
+            summary = "Agent generated response directly (no files created)."
+            result_content = full_text
+
         try:
             db.table("tasks").update({
                 "status": "review",
                 "result_summary": summary,
+                "result_content": result_content,
                 "quality_score": quality,
                 "completed_at": datetime.utcnow().isoformat(),
             }).eq("id", task["id"]).execute()
@@ -222,7 +275,7 @@ async def execute_task(task_id: str):
         yield sse({
             "type": "complete",
             "files": files_created,
-            "summary": summary,
+            "summary": result_content,
             "quality": quality,
             "file_count": file_count,
         })

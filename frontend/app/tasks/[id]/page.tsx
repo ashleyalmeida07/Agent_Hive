@@ -26,6 +26,10 @@ import {
   Wrench,
   FolderOpen,
   File,
+  Play,
+  Code,
+  Monitor,
+  Hexagon,
 } from "lucide-react"
 import { AppShell } from "@/components/app/app-shell"
 import { Card } from "@/components/ui/card"
@@ -238,7 +242,7 @@ function AgentOutputDisplay({ output }: { output: string }) {
           <CodeBlock key={i} code={part.content} filename={part.filename} />
         ) : (
           <div key={i} className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
-            {part.content}
+            {part.content.replace(/^#+\s*/gm, "")}
           </div>
         ),
       )}
@@ -293,9 +297,41 @@ export default function TaskDetailPage() {
   const [agentError, setAgentError] = useState<string | null>(null)
   const [createdFiles, setCreatedFiles] = useState<{name: string, size: number}[]>([])
   const [toolCalls, setToolCalls] = useState<{name: string, args: any}[]>([])
+  
+  // New State for Preview / Code Viewer
+  const [activeTab, setActiveTab] = useState<"preview" | "code">("preview")
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [fileContent, setFileContent] = useState<string>("")
+  const [isLoadingFile, setIsLoadingFile] = useState(false)
+
   const phaseStartTimes = useRef<Record<string, number>>({})
   const streamEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
+
+  // Fetch file content when selected
+  useEffect(() => {
+    if (selectedFile) {
+      setIsLoadingFile(true)
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/files/${selectedFile}`)
+        .then((res) => res.text())
+        .then((text) => {
+          setFileContent(text)
+          setIsLoadingFile(false)
+        })
+        .catch(() => {
+          setFileContent("Error loading file")
+          setIsLoadingFile(false)
+        })
+    }
+  }, [selectedFile, task?.id, taskId])
+
+  // Auto-select index.html or first file
+  useEffect(() => {
+    if (createdFiles.length > 0 && !selectedFile) {
+      const indexFile = createdFiles.find(f => f.name === 'index.html')
+      setSelectedFile(indexFile ? indexFile.name : createdFiles[0].name)
+    }
+  }, [createdFiles, selectedFile])
 
   const userName =
     user?.user_metadata?.full_name ||
@@ -315,6 +351,16 @@ export default function TaskDetailPage() {
           setAgentOutput(data.result_content)
           setAgentSummary(data.result_summary || "")
           setAgentQuality(data.quality_score || 0)
+          
+          // Fetch files from workspace
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${taskId}/files`)
+            .then(r => r.json())
+            .then(res => {
+              if (res.files && res.files.length > 0) {
+                setCreatedFiles(res.files)
+              }
+            })
+            .catch(e => console.error("Failed to load workspace files:", e))
         }
       }
       setLoading(false)
@@ -582,25 +628,25 @@ export default function TaskDetailPage() {
                 </div>
               )}
 
-              {/* Live token stream — shows while executing phase is active */}
-              {streamingOutput && !agentOutput && (
-                <div className="border-t border-border p-5">
-                  <div className="rounded-xl border border-primary/20 bg-[#0d1117] overflow-hidden">
-                    <div className="flex items-center gap-2 border-b border-border/40 bg-secondary/10 px-4 py-2">
-                      <span className="relative flex size-2">
-                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono">Generating deliverables...</span>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto p-4">
-                      <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-emerald-300/90">
-                        {streamingOutput}
-                        <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-emerald-400" />
-                      </pre>
-                      <div ref={streamEndRef} />
+              {/* Agent Loading Animation */}
+              {(agentRunning || (!agentOutput && streamingOutput)) && (
+                <div className="border-t border-border p-12 flex flex-col items-center justify-center">
+                  <div className="relative flex items-center justify-center mb-6">
+                    {/* Pulsing rings */}
+                    <div className="absolute inset-0 rounded-full animate-ping bg-primary/20" style={{ animationDuration: '3s' }}></div>
+                    <div className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+                    
+                    {/* Core Hexagon Logo */}
+                    <div className="relative flex size-20 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-emerald-500 shadow-xl shadow-primary/20">
+                      <Hexagon className="size-10 text-black fill-current animate-pulse" />
                     </div>
                   </div>
+                  
+                  <h3 className="text-lg font-semibold text-foreground mb-2">AgentHive is Building</h3>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {streamingOutput.slice(-60).trim() || "Executing tool calls..."}
+                  </p>
                 </div>
               )}
 
@@ -638,56 +684,121 @@ export default function TaskDetailPage() {
               )}
 
               {agentOutput && (
-                <div className="border-t border-border p-5">
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="border-t border-border p-0">
+                  <div className="flex flex-col h-[700px]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/10">
                       <div className="flex items-center gap-2 text-emerald-400">
-                        <Sparkles className="size-4" />
-                        <span className="text-sm font-semibold">Agent Deliverables</span>
+                        <Sparkles className="size-4.5" />
+                        <span className="font-semibold text-foreground">Generated Project</span>
+                        <Badge className="ml-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-mono">
+                          {agentQuality}/100 Quality
+                        </Badge>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-                          Quality: {agentQuality}/100
-                        </span>
+                      
+                      <div className="flex items-center gap-3">
+                        {createdFiles.length > 0 && (
+                          <div className="flex p-1 bg-background/50 backdrop-blur-md rounded-lg border border-border">
+                            <button
+                              onClick={() => setActiveTab('preview')}
+                              className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors", activeTab === 'preview' ? "bg-primary text-black" : "text-muted-foreground hover:text-foreground")}
+                            >
+                              <Monitor className="size-4" />
+                              Preview
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('code')}
+                              className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors", activeTab === 'code' ? "bg-primary text-black" : "text-muted-foreground hover:text-foreground")}
+                            >
+                              <Code2 className="size-4" />
+                              Code
+                            </button>
+                          </div>
+                        )}
+                        
                         {createdFiles.length > 0 && (
                           <a
                             href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/download`}
-                            className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                            className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
                           >
-                            <Download className="size-3.5" />
-                            Download ZIP
+                            <Download className="size-4" />
+                            Export ZIP
                           </a>
                         )}
                       </div>
                     </div>
 
-                    {/* File tree */}
-                    {createdFiles.length > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                          <FolderOpen className="size-4" />
-                          <span className="font-mono">{createdFiles.length} files created</span>
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-hidden relative bg-[#0a0a0a]">
+                      {createdFiles.length === 0 ? (
+                        <div className="h-full overflow-y-auto p-6">
+                          <AgentOutputDisplay output={agentOutput} />
                         </div>
-                        <div className="rounded-lg border border-border bg-[#0d1117] divide-y divide-border/40">
-                          {createdFiles.map((file, i) => (
-                            <div key={i} className="flex items-center justify-between px-4 py-2.5 hover:bg-secondary/10 transition-colors">
-                              <div className="flex items-center gap-2.5">
-                                <FileCode2 className="size-4 text-emerald-400/70" />
-                                <span className="text-sm font-mono text-foreground/90">{file.name}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                      ) : activeTab === 'preview' ? (
+                        <div className="absolute inset-0 w-full h-full p-4">
+                          <div className="w-full h-full bg-white rounded-xl overflow-hidden border border-border shadow-2xl relative">
+                            <iframe 
+                              src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${task?.id || taskId}/files/index.html`}
+                              className="w-full h-full border-0 absolute inset-0"
+                              title="Project Preview"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex h-full">
+                          {/* Sidebar File Explorer */}
+                          <div className="w-64 border-r border-border bg-[#0d1117] flex flex-col">
+                            <div className="p-3 border-b border-border/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                              <FolderOpen className="size-3.5" />
+                              Workspace Files
                             </div>
-                          ))}
+                            <div className="flex-1 overflow-y-auto py-2">
+                              {createdFiles.map((f, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setSelectedFile(f.name)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors text-left",
+                                    selectedFile === f.name 
+                                      ? "bg-primary/10 text-primary border-r-2 border-primary" 
+                                      : "text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
+                                  )}
+                                >
+                                  <FileCode2 className="size-4 shrink-0" />
+                                  <span className="truncate">{f.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                            {agentSummary && (
+                              <div className="p-4 border-t border-border/50 bg-[#0a0a0a]">
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                  {agentSummary}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Code Viewer */}
+                          <div className="flex-1 overflow-hidden flex flex-col bg-[#050505]">
+                            <div className="px-4 py-2 border-b border-border/50 bg-[#0a0a0a] flex items-center gap-2 text-sm text-muted-foreground">
+                              <File className="size-4" />
+                              {selectedFile || "Select a file"}
+                            </div>
+                            <div className="flex-1 overflow-auto p-4">
+                              {isLoadingFile ? (
+                                <div className="flex items-center justify-center h-full text-muted-foreground">
+                                  <Loader2 className="size-6 animate-spin" />
+                                </div>
+                              ) : (
+                                <pre className="text-sm font-mono text-emerald-300/90 leading-relaxed">
+                                  <code>{fileContent}</code>
+                                </pre>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        {agentSummary && (
-                          <p className="mt-3 text-xs text-muted-foreground">{agentSummary}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-4">
-                        <AgentOutputDisplay output={agentOutput} />
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
