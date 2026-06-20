@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     agent_registry_address:    str = ""
     task_escrow_address:       str = ""
     reputation_engine_address: str = ""
+    api_escrow_address:        str = ""
 
     # App
     environment:          str = "development"

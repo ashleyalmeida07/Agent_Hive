@@ -3,7 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from api import tasks, agents, reputation, analytics, websocket, auth
 from api import ide_compile, ide_projects, ide_deployments
+from api import marketplace, gateway
 from services.supabase_client import init_supabase
+from services.api_escrow_client import backfill_active_api_registrations
 from services.agent_runner import start_agent_polling
 import asyncio
 
@@ -13,6 +15,8 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
     print("[INFO] AgentHive API starting up...")
     init_supabase()
+    backfill_summary = backfill_active_api_registrations()
+    print(f"[INFO] API escrow backfill: {backfill_summary}")
     polling_task = asyncio.create_task(start_agent_polling())
     print("[INFO] Supabase connected. Agent polling started.")
     yield
@@ -51,6 +55,10 @@ app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
 app.include_router(ide_compile.router,     prefix="/api/ide/compile",     tags=["IDE Compile"])
 app.include_router(ide_projects.router,    prefix="/api/ide/projects",    tags=["IDE Projects"])
 app.include_router(ide_deployments.router, prefix="/api/ide/deployments", tags=["IDE Deployments"])
+
+# Marketplace routes
+app.include_router(marketplace.router, prefix="/api/marketplace", tags=["Marketplace"])
+app.include_router(gateway.router,     prefix="/api/gateway",     tags=["API Gateway"])
 
 
 @app.get("/")

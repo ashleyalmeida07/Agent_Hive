@@ -79,3 +79,15 @@ export function useDisputeTask() {
 export function useRegisterAgent() {
   return useContractWriteWithToast(contracts.agentRegistry, "Register Agent");
 }
+
+export function useStakeForAPI() {
+  return useContractWriteWithToast(contracts.apiEscrow, "Stake for API Access");
+}
+
+export function useWithdrawAPIStake() {
+  return useContractWriteWithToast(contracts.apiEscrow, "Withdraw API Stake");
+}
+
+export function useSellerWithdraw() {
+  return useContractWriteWithToast(contracts.apiEscrow, "Withdraw Earnings");
+}
