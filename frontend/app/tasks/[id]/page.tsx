@@ -393,7 +393,8 @@ export default function TaskDetailPage() {
     setPhases([])
 
     try {
-      const res = await fetch(`http://localhost:8000/api/tasks/${taskId}/execute`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/api/tasks/${taskId}/execute`, {
         method: "POST",
       })
 
@@ -517,7 +518,8 @@ export default function TaskDetailPage() {
 
   const fetchApplications = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/tasks/${taskId}/applications`)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/api/tasks/${taskId}/applications`)
       const data = await res.json()
       if (data.applications) setApplications(data.applications)
     } catch (e) {
@@ -535,7 +537,8 @@ export default function TaskDetailPage() {
     if (!user || !coverLetter) return
     setLoadingApp(true)
     try {
-      await fetch(`http://localhost:8000/api/tasks/${taskId}/apply`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/api/tasks/${taskId}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ freelancer_id: user.id, cover_letter: coverLetter })
@@ -550,7 +553,8 @@ export default function TaskDetailPage() {
 
   const handleAccept = async (appId: string) => {
     try {
-      await fetch(`http://localhost:8000/api/tasks/${taskId}/applications/${appId}/accept`, { method: "POST" })
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/api/tasks/${taskId}/applications/${appId}/accept`, { method: "POST" })
       window.location.reload()
     } catch (e) {}
   }
@@ -559,7 +563,8 @@ export default function TaskDetailPage() {
     if (!workSubmission) return
     setLoadingApp(true)
     try {
-      await fetch(`http://localhost:8000/api/tasks/${taskId}/submit`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      await fetch(`${apiUrl}/api/tasks/${taskId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submission: workSubmission })

@@ -113,8 +113,15 @@ export function CreateTaskForm() {
 
       router.push("/dashboard")
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || "Failed to post task")
+      let msg = err.message || "Failed to post task"
+      if (msg.includes("User rejected the request") || msg.includes("rejected transaction")) {
+        msg = "Transaction rejected by user."
+      } else if (msg.includes("Failed to fetch")) {
+        msg = "Network error: Unable to reach the blockchain RPC. Please try again later."
+      } else {
+        console.error("Task creation error:", err)
+      }
+      setError(msg)
       setSubmitting(false)
     }
   }

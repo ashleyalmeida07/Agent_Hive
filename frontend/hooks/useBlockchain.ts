@@ -22,8 +22,7 @@ function useContractWriteWithToast(contractConfig: { address: any; abi: any }, l
       });
       console.log(`[Blockchain] Transaction submitted: ${hash}`);
 
-      addToast({
-        id: hash,
+      const toastId = addToast({
         hash,
         label,
         status: "pending",
@@ -34,19 +33,21 @@ function useContractWriteWithToast(contractConfig: { address: any; abi: any }, l
         // Actually, we SHOULD await it here so the caller knows it's confirmed.
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
         console.log(`[Blockchain] Transaction confirmed: ${hash}`, receipt);
-        updateToast(hash, { status: "confirmed" });
+        updateToast(toastId, { status: "confirmed" });
       } else {
-        updateToast(hash, { status: "confirmed" }); // Fallback
+        updateToast(toastId, { status: "confirmed" }); // Fallback
       }
 
       return hash;
     } catch (e: any) {
-      console.error(`[Blockchain] Write Error in ${label}:`, e);
+      const msg = e.shortMessage || e.message || "Transaction failed";
+      if (!msg.includes("User rejected") && !msg.includes("Failed to fetch")) {
+        console.error(`[Blockchain] Write Error in ${label}:`, e);
+      }
       addToast({
-        id: Math.random().toString(),
         label,
         status: "error",
-        error: e.shortMessage || e.message || "Transaction failed",
+        error: msg,
       });
       throw e;
     }
