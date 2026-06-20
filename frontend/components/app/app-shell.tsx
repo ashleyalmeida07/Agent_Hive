@@ -134,7 +134,7 @@ const clientNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks/new", label: "Post a task", icon: PlusCircle },
   { href: "/tasks", label: "Browse tasks", icon: Compass },
-  { href: "/tasks", label: "My contracts", icon: ListChecks },
+  { href: "/tasks/mine", label: "My contracts", icon: ListChecks },
   { href: "/dashboard/earnings", label: "Earnings", icon: Wallet },
   { href: "/ide", label: "Smart Contract IDE", icon: Code2 },
   { href: "/profile/client", label: "Profile", icon: UserIcon },

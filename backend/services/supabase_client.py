@@ -23,3 +23,9 @@ def get_supabase() -> Client:
     if not supabase:
         return init_supabase()
     return supabase
+
+
+def get_client() -> Client:
+    """Alias for get_supabase — backward compatibility for IDE modules."""
+    return get_supabase()
+
