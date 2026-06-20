@@ -67,7 +67,7 @@ echo [3/3] Setting up Next.js frontend...
 if not exist "frontend\node_modules" (
     echo       Installing Node.js dependencies - this may take 2-3 minutes...
     cd frontend
-    call npm install
+    call pnpm install
     cd ..
     echo       [OK] Node modules installed.
 ) else (

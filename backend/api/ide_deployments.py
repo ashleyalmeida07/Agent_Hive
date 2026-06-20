@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Any
-from services.supabase_client import get_client
+from services.supabase_client import get_supabase
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ class SaveDeploymentRequest(BaseModel):
 @router.post("/")
 async def save_deployment(req: SaveDeploymentRequest):
     """Save a new deployment record after a successful on-chain deploy."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
@@ -46,7 +46,7 @@ async def save_deployment(req: SaveDeploymentRequest):
 @router.get("/user/{wallet_address}")
 async def get_user_deployments(wallet_address: str):
     """Fetch deployment history for a wallet (latest 50)."""
-    supabase = get_client()
+    supabase = get_supabase()
     if not supabase:
         raise HTTPException(status_code=503, detail="Database unavailable")
 

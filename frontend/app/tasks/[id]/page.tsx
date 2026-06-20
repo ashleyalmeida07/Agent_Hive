@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/components/auth/auth-provider"
 import { executorMeta, statusMeta } from "@/lib/data"
+import { useApproveTask, useCancelTask, useDisputeTask } from "@/hooks/useBlockchain"
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -310,6 +311,11 @@ export default function TaskDetailPage() {
   const [fileContent, setFileContent] = useState<string>("")
   const [isLoadingFile, setIsLoadingFile] = useState(false)
 
+  // Blockchain Hooks
+  const { execute: approveTask, isPending: isApproving } = useApproveTask()
+  const { execute: cancelTask, isPending: isCanceling } = useCancelTask()
+  const { execute: disputeTask, isPending: isDisputing } = useDisputeTask()
+
   const phaseStartTimes = useRef<Record<string, number>>({})
   const streamEndRef = useRef<HTMLDivElement>(null)
   const thinkingEndRef = useRef<HTMLDivElement>(null)
@@ -564,10 +570,21 @@ export default function TaskDetailPage() {
   }
 
   const handleApproveWork = async () => {
+    if (!task.onchain_task_id) {
+      alert("This task doesn't have an on-chain ID, cannot approve payment.");
+      return;
+    }
     try {
-      await fetch(`http://localhost:8000/api/tasks/${taskId}/approve_work`, { method: "POST" })
-      window.location.reload()
-    } catch (e) {}
+      const txHash = await approveTask("approveAndRelease", [task.onchain_task_id, 100]);
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/tasks/${taskId}/approve_work`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payout_tx_hash: txHash })
+      });
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   // Progress calculation
@@ -1037,6 +1054,40 @@ export default function TaskDetailPage() {
                 <span>{new Date(task.created_at).toLocaleDateString()}</span>
               </div>
             </div>
+            {isClient && task.status === 'open' && (
+              <Button 
+                variant="destructive" 
+                className="w-full mt-4" 
+                disabled={isCanceling} 
+                onClick={async () => {
+                  if (!task.onchain_task_id) return;
+                  await cancelTask("cancelTask", [task.onchain_task_id]);
+                  // update status in supabase
+                  const supabase = createClient();
+                  await supabase.from("tasks").update({ status: "cancelled" }).eq("id", taskId);
+                  window.location.reload();
+                }}
+              >
+                {isCanceling ? <Loader2 className="size-4 animate-spin" /> : "Cancel Task"}
+              </Button>
+            )}
+            {isClient && task.status === 'completed' && (
+              <Button 
+                variant="outline" 
+                className="w-full mt-4 text-red-500 border-red-500/50 hover:bg-red-500/10" 
+                disabled={isDisputing}
+                onClick={async () => {
+                  if (!task.onchain_task_id) return;
+                  await disputeTask("disputeTask", [task.onchain_task_id]);
+                  // update status in supabase
+                  const supabase = createClient();
+                  await supabase.from("tasks").update({ status: "disputed" }).eq("id", taskId);
+                  window.location.reload();
+                }}
+              >
+                {isDisputing ? <Loader2 className="size-4 animate-spin" /> : "Dispute Work"}
+              </Button>
+            )}
           </Card>
         </div>
       </div>
