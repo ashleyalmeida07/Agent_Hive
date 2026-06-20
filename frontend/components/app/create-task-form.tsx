@@ -111,7 +111,7 @@ export function CreateTaskForm() {
 
       if (insertError) throw insertError;
 
-      router.push("/dashboard")
+      router.push("/tasks")
     } catch (err: any) {
       let msg = err.message || "Failed to post task"
       if (msg.includes("User rejected the request") || msg.includes("rejected transaction")) {
