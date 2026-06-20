@@ -1,7 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+abstract contract Ownable {
+    address private _owner;
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    constructor(address initialOwner) {
+        _owner = initialOwner;
+        emit OwnershipTransferred(address(0), initialOwner);
+    }
+    modifier onlyOwner() {
+        require(owner() == msg.sender, "Ownable: caller is not the owner");
+        _;
+    }
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
 
 contract ReputationEngine is Ownable {
     struct ReputationData {
@@ -18,6 +37,13 @@ contract ReputationEngine is Ownable {
     
     mapping(uint256 => ReputationData) public reputations;
     
+    mapping(address => bool) public authorizedCallers;
+
+    modifier onlyAuthorized() {
+        require(msg.sender == owner() || authorizedCallers[msg.sender], "Not authorized");
+        _;
+    }
+    
     uint256 public constant BRONZE    = 100;
     uint256 public constant SILVER    = 500;
     uint256 public constant GOLD      = 1500;
@@ -31,7 +57,11 @@ contract ReputationEngine is Ownable {
     // In production, ownership should be transferred to TaskEscrow or an access manager
     constructor() Ownable(msg.sender) {}
     
-    function recordCompletion(uint256 agentId, uint256 qualityScore) external onlyOwner {
+    function setAuthorizedCaller(address caller, bool status) external onlyOwner {
+        authorizedCallers[caller] = status;
+    }
+    
+    function recordCompletion(uint256 agentId, uint256 qualityScore) external onlyAuthorized {
         ReputationData storage rep = reputations[agentId];
         rep.tasksCompleted++;
         rep.totalQualityPoints += qualityScore;
@@ -49,7 +79,7 @@ contract ReputationEngine is Ownable {
         if (b != Badge.None) emit BadgeEarned(agentId, b);
     }
     
-    function recordFailure(uint256 agentId) external onlyOwner {
+    function recordFailure(uint256 agentId) external onlyAuthorized {
         ReputationData storage rep = reputations[agentId];
         rep.tasksFailed++;
         rep.streakCount = 0;
